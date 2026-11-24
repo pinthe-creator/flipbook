@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>คลัง Sale Kit</title>
+<style>
+/* Sale-kit library for the sales team: lists every flipbook (.html) in this GitHub Pages repo. */
+:root{--bg:#eceff1;--panel:#fff;--ink:#18212b;--muted:#566370;--line:#d3d9df;--accent:#0a6c7d;--accent-ink:#fff;--soft:#e3eef0;--line-green:#06c755}
+@media (prefers-color-scheme:dark){:root{--bg:#11161b;--panel:#192027;--ink:#e7ecf0;--muted:#98a4af;--line:#2a333c;--accent:#4fc1d2;--accent-ink:#06262c;--soft:#1f3239;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+  padding:20px max(14px,env(safe-area-inset-right)) 40px max(14px,env(safe-area-inset-left))}
+.wrap{max-width:760px;margin:0 auto}
+h1{font-size:1.6rem;margin:0 0 4px;line-height:1.25}
+.sub{color:var(--muted);margin:0 0 16px}
+.search{width:100%;font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:11px 14px;margin-bottom:14px}
+.search:focus-visible,.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.status{color:var(--muted);font-size:.9rem;margin:0 0 12px;min-height:1.4em}
+ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+li{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.t{font-weight:600;font-size:1.05rem;overflow-wrap:anywhere}
+.f{color:var(--muted);font-size:.8rem;overflow-wrap:anywhere}
+.a{display:flex;gap:8px;flex-wrap:wrap}
+.btn{font:inherit;font-weight:500;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 14px;
+  cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;min-height:40px;flex:1 1 auto}
+.btn:hover{border-color:var(--accent)}
+.btn.line{background:var(--line-green);border-color:var(--line-green);color:#fff}
+.empty{color:var(--muted);text-align:center;padding:30px 10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>คลัง Sale Kit</h1>
+  <p class="sub">เลือกโครงการแล้วส่งลิงก์ให้ลูกค้าได้เลย ลูกค้าเปิดเป็นหนังสือพลิกหน้าได้ทันที</p>
+  <input class="search" id="q" type="search" placeholder="ค้นหาชื่อโครงการ…" aria-label="ค้นหา">
+  <p class="status" id="status" role="status" aria-live="polite">กำลังโหลดรายการ…</p>
+  <ul id="list"></ul>
+</div>
+<script>
+(function(){
+  /* If the site uses its own domain (not *.github.io), write the repo here, e.g. 'wonderhouse/flipbook'. */
+  var REPO = '';
+  var SKIP = {'index.html':1,'kits.html':1,'404.html':1};
+
+  var $ = function(id){return document.getElementById(id);};
+  var list=$('list'), status=$('status'), q=$('q'), items=[];
+
+  function repoFromLocation(){
+    var m=location.hostname.match(/^([a-z0-9-]+)\.github\.io$/i);
+    if(!m)return '';
+    var seg=location.pathname.split('/').filter(Boolean)[0];
+    if(!seg||/\.html?$/i.test(seg))seg=m[1]+'.github.io';
+    return m[1]+'/'+seg;
+  }
+  function siteBase(){return location.origin+location.pathname.replace(/[^/]*$/,'');}
+
+  /* Read a book's <title> from the start of the file only (books are several MB), then stop the download. */
+  async function readTitle(url){
+    var ctrl=new AbortController();
+    try{
+      var r=await fetch(url,{signal:ctrl.signal,cache:'no-cache'});
+      if(!r.ok||!r.body)return '';
+      var reader=r.body.getReader(),dec=new TextDecoder(),text='';
+      while(text.length<16000){
+        var c=await reader.read(); if(c.done)break;
+        text+=dec.decode(c.value,{stream:true});
+        var m=text.match(/<title>([\s\S]*?)<\/title>/i);
+        if(m){ctrl.abort();var d=document.createElement('textarea');d.innerHTML=m[1];return d.value.trim();}
+      }
+      ctrl.abort();
+    }catch(e){}
+    return '';
+  }
+
+  function prettify(name){return name.replace(/\.html$/i,'').replace(/[-_]+/g,' ');}
+
+  function copy(text,btn){
+    var done=function(){var o=btn.textContent;btn.textContent='คัดลอกแล้ว';setTimeout(function(){btn.textContent=o;},1500);};
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(done,function(){prompt('คัดลอกลิงก์นี้',text);});}
+    else prompt('คัดลอกลิงก์นี้',text);
+  }
+
+  function render(){
+    var term=q.value.trim().toLowerCase();
+    var shown=items.filter(function(it){return !term||(it.title+' '+it.name).toLowerCase().indexOf(term)>=0;});
+    list.replaceChildren();
+    if(!shown.length){var li=document.createElement('li');li.className='empty';li.textContent=items.length?'ไม่พบโครงการที่ค้นหา':'ยังไม่มี Sale Kit ใน repo นี้';list.appendChild(li);return;}
+    shown.forEach(function(it){
+      var li=document.createElement('li');
+      var t=document.createElement('div');t.className='t';t.textContent=it.title||prettify(it.name);
+      var f=document.createElement('div');f.className='f';f.textContent=it.url;
+      var a=document.createElement('div');a.className='a';
+      var line=document.createElement('a');line.className='btn line';line.textContent='ส่งทาง LINE';
+      line.href='https://line.me/R/share?text='+encodeURIComponent((it.title||prettify(it.name))+'\n'+it.url);
+      line.target='_blank';line.rel='noopener';
+      var cp=document.createElement('button');cp.type='button';cp.className='btn';cp.textContent='คัดลอกลิงก์';
+      cp.onclick=function(){copy(it.url,cp);};
+      var op=document.createElement('a');op.className='btn';op.textContent='เปิดดู';op.href=it.url;op.target='_blank';op.rel='noopener';
+      a.append(line,cp,op);li.append(t,f,a);list.appendChild(li);
+    });
+  }
+
+  async function load(){
+    var repo=REPO||repoFromLocation();
+    if(!repo){status.textContent='ยังไม่รู้ว่าใช้ repo ไหน: เปิดไฟล์ kits.html ใน GitHub แล้วใส่ชื่อ repo ที่บรรทัด REPO เช่น \'wonderhouse/flipbook\'';return;}
+    try{
+      var r=await fetch('https://api.github.com/repos/'+repo+'/contents/',{headers:{Accept:'application/vnd.github+json'}});
+      if(r.status===403||r.status===429){status.textContent='GitHub จำกัดจำนวนการโหลดชั่วคราว ลองใหม่ในอีกไม่กี่นาที';return;}
+      if(!r.ok){status.textContent='โหลดรายการไม่สำเร็จ (repo '+repo+' ตอบกลับ '+r.status+')';return;}
+      var files=await r.json(),base=siteBase();
+      items=files.filter(function(f){return f.type==='file'&&/\.html$/i.test(f.name)&&!SKIP[f.name.toLowerCase()];})
+        .map(function(f){return {name:f.name,url:base+encodeURIComponent(f.name).replace(/%2F/g,'/'),title:''};});
+      status.textContent=items.length?('ทั้งหมด '+items.length+' เล่ม'):'';
+      render();
+      /* Fill in real titles a few at a time. */
+      var i=0;
+      async function worker(){while(i<items.length){var it=items[i++];it.title=await readTitle(it.url);}}
+      await Promise.all([worker(),worker(),worker()]);
+      items.sort(function(a,b){return (a.title||a.name).localeCompare(b.title||b.name,'th');});
+      render();
+    }catch(e){status.textContent='โหลดรายการไม่สำเร็จ ตรวจการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่';}
+  }
+
+  q.addEventListener('input',render);
+  load();
+})();
+</script>
+</body>
+</html>
